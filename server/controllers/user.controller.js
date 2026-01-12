@@ -5,7 +5,7 @@ import userModel from "../models/user.model.js"
 
 
 // register controller
-const userRegister = async (req,res)=>{
+const userSignup = async (req,res)=>{
     try {
         const {firstName,lastName,email,password} = req.body;
 
@@ -66,4 +66,4 @@ const userLogin = async (req,res)=>{
 
 
 
-export default {userRegister,userLogin};
+export default {userSignup,userLogin};

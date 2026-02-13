@@ -98,12 +98,12 @@ const Footer = ()=> {
             <h3 className="text-lg font-semibold text-white mb-4">Partner With Us</h3>
             <ul className="space-y-2">
               <li>
-                <NavLink to="/become-seller" className="text-sm hover:text-orange-600 transition-colors">
+                <NavLink to="/restaurant-registration" className="text-sm hover:text-orange-600 transition-colors">
                   Become a Seller
                 </NavLink>
               </li>
               <li>
-                <NavLink to="/become-delivery-partner" className="text-sm hover:text-orange-600 transition-colors">
+                <NavLink to="/Delivery-partner-registration" className="text-sm hover:text-orange-600 transition-colors">
                   Become a Delivery Partner
                 </NavLink>
               </li>

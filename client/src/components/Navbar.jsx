@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useState } from 'react';
 import { FiSearch, FiShoppingCart,FiMapPin } from 'react-icons/fi';
 import {FaUser } from 'react-icons/fa';
-
+import UserSignin from './auth/UserSignin';
 
 const Navbar = () => {
   const [cartCount, setCartCount] = useState(1);
@@ -94,10 +94,14 @@ const Navbar = () => {
             >
               My Orders
             </NavLink>
-            <NavLink to={"/customer-signup"}>
-              <button className="flex items-center bg-orange-600 text-white gap-1 cursor-pointer sm:px-4 md:px-3 py-1.5 sm:py-2 text-sm sm:text-base rounded-full hover:bg-orange-700 transition-colors font-medium whitespace-nowrap">
-                <FaUser /> <span>Sign Up</span>
+            <NavLink
+              to="/signin"
+            >
+              <button className=" flex items-center bg-orange-600 text-white gap-1 cursor-pointer sm:px-4 md:px-3 py-1.5 sm:py-2 text-sm sm:text-base rounded-full hover:bg-orange-700 transition-colors font-medium whitespace-nowrap"
+              >
+                <FaUser /> <span>Sign In</span>
               </button>
+              
             </NavLink>
 
           </div>

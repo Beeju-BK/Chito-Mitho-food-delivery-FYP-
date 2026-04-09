@@ -1,20 +1,48 @@
 import mongoose from "mongoose";
 
 const restaurantSchema = new mongoose.Schema({
-    userId:{
-        type: mongoose.Schema.Types.ObjectId, ref: "user"
+    // personal information
+    owner:{
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: "User",
+        unique: true,
+        required: true,
     },
+
+    // Business Information
     restaurantName:{
         type: String,
-        required: true
+        required: true,
+        trim: true,
     },
-    restaurantImageUrl:{
+
+    restaurantType:{
         type: String,
-        required: true
+        required: true,
     },
+
+    cuisineTypes:{
+        type:[String],
+    },
+
+    openingTime: {
+    type: String,
+    required: true,
     
+  },
+  closingTime: {
+    type: String,
+    required: true,
+  },
+
+  // Documents
+  restaurantImage:{
+    type: String,
+    required: true,
+  },
+
 },{timestamps: true});
 
-const restaurant = mongoose.model("restuarant",restaurantSchema);
+const Restaurant = mongoose.model("Restaurant",restaurantSchema);
 
-export default restaurant;          
+export default Restaurant;          

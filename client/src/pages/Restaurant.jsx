@@ -1,9 +1,9 @@
-
+import React from 'react'
 
 const Restaurant = () => {
   return (
     <div>
-      <h1>This is Restaurant Page!</h1>
+      this is restaurant Page
     </div>
   )
 }

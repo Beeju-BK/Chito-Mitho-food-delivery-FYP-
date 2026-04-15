@@ -12,9 +12,13 @@ const ProtectedRoute = ({ children }) => {
 
   if (loading) return <Loading/>;
   
-  if (!user.role == "vendor") {
+  if (!user.role == "admin") {
     return <PageNotFound/> ;
   }
+
+  // if(!user.role == "admin"){
+  //   return <PageNotFound/>
+  // }
 
   return children;
 };

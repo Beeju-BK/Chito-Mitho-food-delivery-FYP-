@@ -65,9 +65,9 @@ export const userLogin = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        if (user.role.toLowerCase() !== "customer") {
-            return res.json({ message: "Access denied. Only customers can login." });
-        }
+        // if (user.role.toLowerCase() !== "customer") {
+        //     return res.json({ message: "Access denied. Only customers can login." });
+        // }
 
 
         const isMatched = await bcrypt.compare(password, user.password);

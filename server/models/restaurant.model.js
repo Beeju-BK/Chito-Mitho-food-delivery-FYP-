@@ -40,6 +40,12 @@ const restaurantSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  isBlocked: {
+    type: Boolean,
+    default: false
+  },
+  isApproved: { type: Boolean, default: false }, 
+  approvedAt: { type: Date, default: null },
 
 },{timestamps: true});
 

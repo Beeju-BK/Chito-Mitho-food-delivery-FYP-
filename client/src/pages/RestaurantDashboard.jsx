@@ -8,7 +8,7 @@ import Topbar from "../components/restaurant/dashboard/Topbar";
 // Import View Components
 import Overview from "../components/restaurant/dashboard/Overview";
 import MenuManagement from "../components/restaurant/dashboard/MenuManagement";
-import Orders from "../components/restaurant/dashboard/Orders";
+import VendorOrders from "../components/restaurant/dashboard/VendorOrders";
 import Analytics from "../components/restaurant/dashboard/Analytics";
 import Settings from "../components/restaurant/dashboard/Settings";
 
@@ -21,7 +21,7 @@ export default function RestaurantDashboard() {
     switch (activeTab) {
       case "overview": return <Overview />;
       case "menu":     return <MenuManagement />;
-      case "orders":   return <Orders />;
+      case "orders":   return <VendorOrders />;
       case "analytics": return <Analytics/>
       case "settings": return <Settings />;
       default:

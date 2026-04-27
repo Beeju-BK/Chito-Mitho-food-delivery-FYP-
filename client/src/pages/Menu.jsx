@@ -1,101 +1,101 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-
 import MenuCard from "../components/cards/MenuCard";
 
 const Menu = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchMenuItems = useCallback(async () => {
+  const fetchMenuItems = async () => {
     try {
       setLoading(true);
-      setError(null);
-      
-      // ✅ YOUR BACKEND ROUTE
       const response = await axios.get("http://localhost:3000/api/menu/public");
-      
-      // ✅ Matches your controller response
       setMenuItems(response.data.data || []);
-
     } catch (error) {
-      console.error("Error fetching menu items:", error);
-      setError(error.response?.data?.message || "Failed to load menu items");
+      console.error("Error:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchMenuItems();
-  }, [fetchMenuItems]);
+  }, []);
 
-  // Loading
+  // Simple search
+  const filteredItems = useMemo(() => {
+    if (!searchTerm) return menuItems;
+    return menuItems.filter(item =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [menuItems, searchTerm]);
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center p-8 bg-gray-50">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-gray-200 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading menu...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-        <div className="bg-white p-8 rounded-2xl shadow-lg max-w-sm w-full text-center">
-          <div className="text-red-500 w-16 h-16 mx-auto mb-4">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-bold text-gray-800 mb-4">{error}</h3>
-          <button
-            onClick={fetchMenuItems}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="w-12 h-12 border-4 border-gray-300 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600">Loading menu...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div>
-     
+    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header - Simple */}
+        <div className="text-center mb-12">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Our Menu</h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            {filteredItems.length} of {menuItems.length} items
+          </p>
+        </div>
 
-      {/* YOUR EXACT STYLE */}
-      <section className="py-6 px-6 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-5">
-            Our Menu
-          </h2>
+        {/* Search Bar */}
+        <div className="max-w-2xl mx-auto mb-12 ">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search burgers, pizza, drinks..."
+              className="w-full p-4 pl-12 pr-6 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm"
+            />
+            <svg className="w-6 h-6 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
 
-          {menuItems.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-xl text-gray-500">No menu items available</p>
+        {/* Grid - YOUR ORIGINAL SIZING */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+          {filteredItems.length === 0 ? (
+            <div className="col-span-full text-center py-20 bg-white rounded-xl shadow-sm border">
+              <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-xl flex items-center justify-center">
+                <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">No items found</h3>
+              <p className="text-gray-600">Try a different search</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {menuItems.map(item => (
-                <MenuCard
-                  key={item._id}           
-                  id={item._id}            
-                  img={item.menuImage}     
-                  name={item.name}
-                  description={item.description}
-                  price={item.price}
-                />
-              ))}
-            </div>
+            filteredItems.map(item => (
+              <MenuCard
+                key={item._id}
+                id={item._id}
+                img={item.menuImage}
+                name={item.name}
+                description={item.description}
+                price={item.price}
+              />
+            ))
           )}
         </div>
-      </section>
+      </div>
     </div>
   );
 };

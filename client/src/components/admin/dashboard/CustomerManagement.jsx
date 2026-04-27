@@ -1,48 +1,111 @@
-import { useState } from "react";
-import { Search, ShieldOff, ShieldCheck, MapPin, Phone, User, AlertTriangle, ChevronDown, ShoppingBag } from "lucide-react";
-
-const initialCustomers = [
-  { id: 1, name: "Aarav Shrestha", email: "aarav@gmail.com", phone: "+977-9801234567", address: "Baneshwor, Kathmandu", blocked: false, avatar: "👨", orderCount: 24, joinedDate: "Jan 12, 2024" },
-  { id: 2, name: "Priya Tamang", email: "priya.t@gmail.com", phone: "+977-9812345678", address: "Lalitpur, Patan", blocked: false, avatar: "👩", orderCount: 11, joinedDate: "Mar 3, 2024" },
-  { id: 3, name: "Bikash Rai", email: "bikash.rai@yahoo.com", phone: "+977-9823456789", address: "Asan, Kathmandu", blocked: true, avatar: "🧑", orderCount: 3, joinedDate: "Feb 18, 2024" },
-  { id: 4, name: "Sunita Gurung", email: "sunita.g@gmail.com", phone: "+977-9834567890", address: "Thamel, Kathmandu", blocked: false, avatar: "👩", orderCount: 47, joinedDate: "Apr 7, 2024" },
-  { id: 5, name: "Dipesh Karki", email: "dipesh.k@outlook.com", phone: "+977-9845678901", address: "Bhaktapur", blocked: false, avatar: "👨", orderCount: 9, joinedDate: "Dec 20, 2023" },
-  { id: 6, name: "Manisha Lama", email: "manisha.l@gmail.com", phone: "+977-9856789012", address: "Indrachowk, Kathmandu", blocked: true, avatar: "👩", orderCount: 2, joinedDate: "Nov 5, 2023" },
-  { id: 7, name: "Suresh Pandey", email: "suresh.p@gmail.com", phone: "+977-9867890123", address: "Boudha, Kathmandu", blocked: false, avatar: "🧑", orderCount: 18, joinedDate: "May 1, 2024" },
-  { id: 8, name: "Rekha Maharjan", email: "rekha.m@gmail.com", phone: "+977-9878901234", address: "Lazimpat, Kathmandu", blocked: false, avatar: "👩", orderCount: 33, joinedDate: "Jun 14, 2024" },
-];
+import { useState, useEffect } from "react";
+import { 
+  Search, 
+  ShieldOff, 
+  ShieldCheck, 
+  MapPin, 
+  Phone, 
+  User, 
+  AlertTriangle, 
+  ChevronDown, 
+  ShoppingBag,
+  Loader2 
+} from "lucide-react";
+import axios from "axios";
 
 const STATUS_OPTIONS = ["All", "Active", "Blocked"];
 
 export default function CustomerManagement() {
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [confirmId, setConfirmId] = useState(null);
+  const [stats, setStats] = useState({});
 
-  const toggleBlock = (id) => {
-    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, blocked: !c.blocked } : c)));
-    setConfirmId(null);
+  // ✅ Fetch real customers
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axios.get('http://localhost:3000/api/admin/customers', { 
+        withCredentials: true 
+      });
+      setCustomers(data.customers || []);
+      setStats(data.stats || {});
+    } catch (error) {
+      console.error('Failed to fetch customers:', error.response?.data || error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filtered = customers.filter((c) => {
+  // ✅ Toggle block/unblock
+  const toggleBlock = async (customerId) => {
+    try {
+      console.log('🔄 Toggling customer:', customerId);
+      
+      const response = await axios.patch(
+        `http://localhost:3000/api/admin/customers/${customerId}/toggle-block`,
+        {},
+        { withCredentials: true }
+      );
+      
+      if (response.data.success) {
+        // ✅ Update UI instantly
+        setCustomers(prev => prev.map(customer => 
+          customer._id === customerId
+            ? { 
+                ...customer, 
+                blocked: response.data.customer.isBlocked,
+                isBlocked: response.data.customer.isBlocked 
+              }
+            : customer
+        ));
+        console.log('✅ Customer toggled:', response.data.customer);
+      }
+    } catch (error) {
+      console.error('❌ Toggle error:', error.response?.data || error);
+      alert(error.response?.data?.message || 'Failed to update status');
+    } finally {
+      setConfirmId(null);
+    }
+  };
+
+  // ✅ Filter customers
+  const filtered = customers.filter((customer) => {
     const q = search.toLowerCase();
     const matchSearch =
-      c.name.toLowerCase().includes(q) ||
-      c.email.toLowerCase().includes(q) ||
-      c.address.toLowerCase().includes(q) ||
-      c.phone.includes(q);
+      customer.name?.toLowerCase().includes(q) ||
+      customer.email?.toLowerCase().includes(q) ||
+      (customer.address || '')?.toLowerCase().includes(q) ||
+      customer.phone?.includes(q);
+    
+    const isBlocked = customer.blocked || customer.isBlocked || false;
     const matchStatus =
       statusFilter === "All" ||
-      (statusFilter === "Active" && !c.blocked) ||
-      (statusFilter === "Blocked" && c.blocked);
+      (statusFilter === "Active" && !isBlocked) ||
+      (statusFilter === "Blocked" && isBlocked);
+      
     return matchSearch && matchStatus;
   });
 
-  const totalActive  = customers.filter((c) => !c.blocked).length;
-  const totalBlocked = customers.filter((c) =>  c.blocked).length;
+  const totalActive = customers.filter(c => !(c.blocked || c.isBlocked)).length;
+  const totalBlocked = customers.filter(c => c.blocked || c.isBlocked).length;
 
-  const confirmingCustomer = customers.find((c) => c.id === confirmId);
+  const confirmingCustomer = customers.find(c => c._id === confirmId);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mr-2" />
+        <span>Loading customers...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-0 font-sans">
@@ -50,22 +113,39 @@ export default function CustomerManagement() {
       <div className="pb-5 border-b border-gray-100">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold tracking-widest uppercase text-indigo-500 mb-1">Admin Panel</p>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Customer Registry</h2>
+            <p className="text-[11px] font-semibold tracking-widest uppercase text-indigo-500 mb-1">
+              Admin Panel
+            </p>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Customer Management
+            </h2>
           </div>
-          {/* Stat pills */}
+          
+          {/* ✅ Real Stats */}
           <div className="flex gap-2 mt-1">
             <div className="text-center px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
-              <p className="text-lg font-bold text-emerald-700 leading-none">{totalActive}</p>
-              <p className="text-[10px] font-medium text-emerald-500 mt-0.5 uppercase tracking-wider">Active</p>
+              <p className="text-lg font-bold text-emerald-700 leading-none">
+                {stats.totalActive || totalActive}
+              </p>
+              <p className="text-[10px] font-medium text-emerald-500 mt-0.5 uppercase tracking-wider">
+                Active
+              </p>
             </div>
             <div className="text-center px-4 py-2 bg-red-50 border border-red-100 rounded-xl">
-              <p className="text-lg font-bold text-red-600 leading-none">{totalBlocked}</p>
-              <p className="text-[10px] font-medium text-red-400 mt-0.5 uppercase tracking-wider">Blocked</p>
+              <p className="text-lg font-bold text-red-600 leading-none">
+                {stats.totalBlocked || totalBlocked}
+              </p>
+              <p className="text-[10px] font-medium text-red-400 mt-0.5 uppercase tracking-wider">
+                Blocked
+              </p>
             </div>
             <div className="text-center px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl">
-              <p className="text-lg font-bold text-gray-700 leading-none">{customers.length}</p>
-              <p className="text-[10px] font-medium text-gray-400 mt-0.5 uppercase tracking-wider">Total</p>
+              <p className="text-lg font-bold text-gray-700 leading-none">
+                {stats.totalCustomers || customers.length}
+              </p>
+              <p className="text-[10px] font-medium text-gray-400 mt-0.5 uppercase tracking-wider">
+                Total
+              </p>
             </div>
           </div>
         </div>
@@ -83,22 +163,26 @@ export default function CustomerManagement() {
             />
           </div>
 
-          {/* Status select */}
           <div className="relative">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 text-gray-700 cursor-pointer"
             >
-              {STATUS_OPTIONS.map((s) => <option key={s}>{s}</option>)}
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
             </select>
-            <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <ChevronDown 
+              size={13} 
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" 
+            />
           </div>
         </div>
       </div>
 
       {/* ── Column headers ── */}
-      <div className="grid grid-cols-[2.5fr_1.5fr_1fr_auto] gap-4 px-4 py-2.5 mt-3">
+      <div className="grid grid-cols-[2.5fr_1.5fr_1fr_auto] gap-4 px-4 py-2.5 mt-3 bg-gray-50 rounded-xl">
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Customer</p>
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Location</p>
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Orders</p>
@@ -107,114 +191,148 @@ export default function CustomerManagement() {
 
       {/* ── Customer rows ── */}
       <div className="space-y-1.5">
-        {filtered.length === 0 && (
+        {filtered.length === 0 && !loading && (
           <div className="text-center py-14 text-gray-400">
             <User size={32} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm font-medium">No customers match your filters</p>
           </div>
         )}
 
-        {filtered.map((customer) => (
-          <div
-            key={customer.id}
-            className={`grid grid-cols-[2.5fr_1.5fr_1fr_auto] gap-4 items-center px-4 py-3.5 rounded-xl border transition-all
-              ${customer.blocked
-                ? "bg-red-50/60 border-red-100 opacity-75"
-                : "bg-white border-gray-100 hover:border-indigo-100 hover:shadow-sm"
-              }`}
-          >
-            {/* Customer info */}
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0 bg-indigo-50 ${customer.blocked ? "grayscale opacity-50" : ""}`}>
-                {customer.avatar}
-              </div>
-              <div className="min-w-0">
-                <p className={`text-sm font-semibold truncate ${customer.blocked ? "text-gray-400 line-through" : "text-gray-800"}`}>
-                  {customer.name}
-                </p>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span className="text-xs text-gray-400 flex items-center gap-1 truncate">
-                    <User size={10} /> {customer.email}
-                  </span>
-                  <span className="text-gray-200">·</span>
-                  <span className="text-xs text-gray-400 flex items-center gap-1">
+        {filtered.map((customer) => {
+          const isBlocked = customer.blocked || customer.isBlocked || false;
+          return (
+            <div
+              key={customer._id || customer.id}
+              className={`grid grid-cols-[2.5fr_1.5fr_1fr_auto] gap-4 items-center px-4 py-3.5 rounded-xl border transition-all cursor-pointer hover:shadow-sm
+                ${isBlocked
+                  ? "bg-red-50/60 border-red-100 opacity-75"
+                  : "bg-white border-gray-100 hover:border-indigo-200"
+                }`}
+            >
+              {/* Customer info */}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0 font-semibold bg-gradient-to-br ${
+                  isBlocked 
+                    ? "from-red-100 to-red-200 text-red-400" 
+                    : "from-indigo-100 via-blue-100 to-purple-100 text-indigo-600"
+                }`}>
+                  {customer.avatar || customer.name?.charAt(0)?.toUpperCase() || '👤'}
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-sm font-semibold truncate ${
+                    isBlocked ? "text-gray-500 line-through" : "text-gray-900"
+                  }`}>
+                    {customer.name}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-xs text-gray-500 truncate max-w-[140px]">
+                      {customer.email} 
+                    </span>
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
                     <Phone size={10} /> {customer.phone}
                   </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Location */}
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
-              <MapPin size={11} className="text-gray-300 flex-shrink-0" />
-              <span className="truncate">{customer.address}</span>
-            </div>
+              {/* Location */}
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 min-w-0">
+                <MapPin size={11} className="text-gray-300 flex-shrink-0" />
+                <span className="truncate">{customer.address || 'N/A'}</span>
+              </div>
 
-            {/* Order count */}
-            <div className="flex items-center gap-1.5">
-              <ShoppingBag size={12} className="text-gray-300" />
-              <span className="text-sm font-bold text-gray-700">{customer.orderCount}</span>
-            </div>
+              {/* Order count */}
+              <div className="flex items-center gap-1.5">
+                <ShoppingBag size={12} className="text-gray-300" />
+                <span className="text-sm font-bold text-gray-700">
+                  {customer.orderCount || 0}
+                </span>
+              </div>
 
-            {/* Block / Unblock */}
-            <div className="flex items-center gap-2">
-              <span className={`hidden sm:inline text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
-                customer.blocked
-                  ? "bg-red-50 text-red-500 border-red-200"
-                  : "bg-emerald-50 text-emerald-600 border-emerald-200"
-              }`}>
-                {customer.blocked ? "Blocked" : "Active"}
-              </span>
-              <button
-                onClick={() => setConfirmId(customer.id)}
-                title={customer.blocked ? "Unblock customer" : "Block customer"}
-                className={`p-2 rounded-lg border transition-colors ${
-                  customer.blocked
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100"
-                    : "bg-red-50 border-red-200 text-red-400 hover:bg-red-100 hover:text-red-600"
-                }`}
-              >
-                {customer.blocked ? <ShieldCheck size={15} /> : <ShieldOff size={15} />}
-              </button>
+              {/* Status & Action */}
+              <div className="flex items-center gap-2">
+                <span className={`hidden sm:inline text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border font-medium ${
+                  isBlocked
+                    ? "bg-red-50 text-red-600 border-red-200"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                }`}>
+                  {isBlocked ? "Blocked" : "Active"}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmId(customer._id || customer.id);
+                  }}
+                  title={isBlocked ? "Unblock customer" : "Block customer"}
+                  className={`p-1.5 rounded-lg border transition-all group hover:shadow-sm ${
+                    isBlocked
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-300"
+                      : "bg-red-50 border-red-200 text-red-500 hover:bg-red-100 hover:border-red-300 hover:text-red-600"
+                  }`}
+                >
+                  {isBlocked ? (
+                    <ShieldCheck size={16} className="group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <ShieldOff size={16} className="group-hover:scale-110 transition-transform" />
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── Confirm modal ── */}
       {confirmId && confirmingCustomer && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
-              confirmingCustomer.blocked ? "bg-emerald-50" : "bg-red-50"
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-100">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg ${
+              confirmingCustomer.blocked || confirmingCustomer.isBlocked
+                ? "bg-emerald-50 border-2 border-emerald-200"
+                : "bg-red-50 border-2 border-red-200"
             }`}>
-              <AlertTriangle size={22} className={confirmingCustomer.blocked ? "text-emerald-500" : "text-red-500"} />
+              <AlertTriangle 
+                size={24} 
+                className={(confirmingCustomer.blocked || confirmingCustomer.isBlocked) 
+                  ? "text-emerald-500" 
+                  : "text-red-500"
+                } 
+              />
             </div>
-            <h3 className="text-center font-bold text-gray-800 text-lg">
-              {confirmingCustomer.blocked ? "Unblock Customer?" : "Block Customer?"}
+            
+            <h3 className="text-center font-bold text-gray-900 text-lg mb-1">
+              {(confirmingCustomer.blocked || confirmingCustomer.isBlocked) 
+                ? "Unblock Customer?" 
+                : "Block Customer?"
+              }
             </h3>
-            <p className="text-center text-sm text-gray-500 mt-2 leading-relaxed">
-              {confirmingCustomer.blocked
-                ? <>This will restore access for <strong>{confirmingCustomer.name}</strong>.</>
-                : <>This will prevent <strong>{confirmingCustomer.name}</strong> from placing orders.</>
+            
+            <p className="text-center text-sm text-gray-600 leading-relaxed mb-6 px-2">
+              {(confirmingCustomer.blocked || confirmingCustomer.isBlocked)
+                ? `This will restore ordering access for <strong>${confirmingCustomer.name}</strong>.`
+                : `This will prevent <strong>${confirmingCustomer.name}</strong> (${confirmingCustomer.email}) from placing orders.`
               }
             </p>
-            <div className="flex gap-3 mt-6">
+            
+            <div className="flex gap-3">
               <button
                 onClick={() => setConfirmId(null)}
-                className="flex-1 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+                className="flex-1 border border-gray-200 text-gray-700 rounded-xl py-3 px-4 text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={() => toggleBlock(confirmId)}
-                className={`flex-1 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors ${
-                  confirmingCustomer.blocked
+                className={`flex-1 text-white rounded-xl py-3 px-4 text-sm font-semibold transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 ${
+                  (confirmingCustomer.blocked || confirmingCustomer.isBlocked)
                     ? "bg-emerald-500 hover:bg-emerald-600"
                     : "bg-red-500 hover:bg-red-600"
                 }`}
               >
-                {confirmingCustomer.blocked ? "Yes, Unblock" : "Yes, Block"}
+                {(confirmingCustomer.blocked || confirmingCustomer.isBlocked) 
+                  ? "Yes, Unblock" 
+                  : "Yes, Block"
+                }
               </button>
             </div>
           </div>

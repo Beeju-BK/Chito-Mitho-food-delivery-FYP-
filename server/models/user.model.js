@@ -47,7 +47,19 @@ const userSchema = new mongoose.Schema({
     },
     otpExpires: {
         type: Date,
-    }
+    },
+    isBlocked: {
+    type: Boolean,
+    default: false
+  },
+  resetPasswordToken: {
+    type: String,
+    default: undefined
+  },
+  resetPasswordExpire: {
+    type: Date,
+    default: undefined
+  }
 
 }, { timestamps: true });
 

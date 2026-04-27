@@ -9,7 +9,8 @@ import Topbar from "../components/admin/dashboard/Topbar";
 import Overview from "../components/admin/dashboard/Overview";
 import VendorManagement from "../components/admin/dashboard/VendorManagement";
 import CustomerManagement from "../components/admin/dashboard/CustomerManagement";
-import Orders from "../components/admin/dashboard/Orders";
+import DeliverymanManagement from "../components/admin/dashboard/DeliverymanManagement"
+import AdminOrders from "../components/admin/dashboard/AdminOrders";
 import Analytics from "../components/admin/dashboard/Analytics";
 import Settings from "../components/admin/dashboard/Settings";
 
@@ -21,9 +22,10 @@ export default function AdminDashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case "overview": return <Overview />;
-      case "Vendor":     return <VendorManagement />;
-      case "Customer":     return <CustomerManagement />;
-      case "orders":   return <Orders />;
+      case "vendor":     return <VendorManagement />;
+      case "customer":     return <CustomerManagement />;
+      case "deliveryman": return <DeliverymanManagement/>;
+      case "orders":   return <AdminOrders />;
       case "analytics": return <Analytics/>
       case "settings": return <Settings />;
       default:

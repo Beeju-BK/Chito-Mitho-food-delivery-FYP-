@@ -5,207 +5,164 @@ import Restaurant from "../models/restaurant.model.js";
 import Menu from "../models/menu.model.js";
 import jwt from "jsonwebtoken";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Register (vendor + restaurant — pending admin approval)
+// ─────────────────────────────────────────────────────────────────────────────
 export const register = async (req, res) => {
   let newUser = null;
-
   try {
-
     const {
-      firstName,
-      lastName,
-      phone,
-      address,
-      email,
-      password,
-      restaurantName,
-      restaurantType,
-      openingTime,
-      closingTime,
+      firstName, lastName, phone, address,
+      email, password, restaurantName,
+      restaurantType, openingTime, closingTime,
     } = req.body;
 
-
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-
+    const baseUrl        = `${req.protocol}://${req.get("host")}`;
     const restaurantImage = req.file
       ? `${baseUrl}/uploads/${req.file.filename}`
       : null;
 
-
-
-
-    const isUserExist = await User.findOne({ email });
-    if (isUserExist) {
-      return res.status(409).json({
-        message: "User already exists!",
-        status: false,
-      });
+    if (!restaurantImage) {
+      return res.status(400).json({ message: "Restaurant image is required" });
     }
 
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(409).json({ message: "Email already registered", status: false });
+    }
 
     const hashPassword = await bcrypt.hash(password, 10);
 
-
     newUser = await User.create({
-      firstName,
-      lastName,
-      phone,
-      address,
-      email,
-      password: hashPassword,
+      firstName, lastName, phone, address,
+      email, password: hashPassword,
       role: "vendor",
     });
 
-
-    const newRestaurant = await Restaurant.create({
-      owner: newUser._id,
+    await Restaurant.create({
+      owner:         newUser._id,
       restaurantName,
       restaurantType,
       openingTime,
       closingTime,
       restaurantImage,
-
+      isApproved: false, // pending admin approval
+      isBlocked:  false,
     });
-
-    const payload = {
-      userId: newUser._id,
-      restaurantId: newRestaurant._id,
-      restaurantName: newRestaurant.restaurantName,
-      role: "vendor"
-    };
-    const token = jwt.sign(payload, process.env.SECRET_KEY);
-    res.cookie("token", token, {
-      httpOnly: true,
-    })
 
     return res.status(201).json({
-      message: "Restaurant registered successfully",
-      status: true,
-      data: {
-        userId: newUser._id,
-        restaurantId: newRestaurant._id,
-      },
+      message: "Registration submitted! Please wait for admin approval before logging in.",
+      status:  true,
     });
-
   } catch (error) {
     console.error("Registration Error:", error);
-    if (newUser) {
-      await User.findByIdAndDelete(newUser._id);
-      console.log("User rolled back");
-    }
-    return res.status(500).json({
-      message: "Something went wrong!",
-      status: false,
-    });
+    if (newUser) await User.findByIdAndDelete(newUser._id);
+    return res.status(500).json({ message: "Something went wrong!", status: false });
   }
 };
 
-
-
-// login
+// ─────────────────────────────────────────────────────────────────────────────
+// Login (vendor)
+// ─────────────────────────────────────────────────────────────────────────────
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const isUserExist = await User.findOne({ email });
 
-    if (!isUserExist) {
-      return res.status(404).json({
-        message: "User does not exist, please sign up",
-        status: false,
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: false });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials", status: false });
+    }
+
+    // ✅ FIX: single DB call — reuse restaurant for both checks and JWT payload
+    const restaurant = await Restaurant.findOne({ owner: user._id });
+    if (!restaurant) {
+      return res.status(403).json({ message: "Restaurant not found", status: false });
+    }
+
+    if (!restaurant.isApproved) {
+      return res.status(403).json({
+        message: "Your restaurant is pending admin approval.",
+        status:  false,
+        pending: true,
       });
     }
 
-    // Find restaurant owned by this user
-    const restaurant = await Restaurant.findOne({ owner: isUserExist._id });
-    if (!restaurant) {
-      return res.status(404).json({ message: "No restaurant found for this user" });
+    if (restaurant.isBlocked) {
+      return res.status(403).json({
+        message: "Your restaurant has been blocked. Please contact support.",
+        status:  false,
+      });
     }
 
-    const isMatched = await bcrypt.compare(password, isUserExist.password);
-    if (!isMatched) {
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
-
-    // Payload includes both userId and restaurantId
+    // ✅ role: "vendor" — matches authorizeRoles("vendor") in routes
     const payload = {
-      userId: isUserExist._id,
-      restaurantId: restaurant._id,
+      userId:         user._id,
+      restaurantId:   restaurant._id,
       restaurantName: restaurant.restaurantName,
-      name: isUserExist.firstName + " " + isUserExist.lastName,
-      role: "vendor"
+      name:           `${user.firstName} ${user.lastName}`,
+      email:          user.email,
+      role:           "vendor",
     };
-    const token = jwt.sign(payload, process.env.SECRET_KEY);
 
-
-
-    res.cookie("token", token, { httpOnly: true });
+    const token = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: "7d" });
+    res.cookie("token", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure:   process.env.NODE_ENV === "production",
+      maxAge:   7 * 24 * 60 * 60 * 1000,
+    });
 
     return res.status(200).json({
-      message: "Restaurant owner logged in successfully!",
+      message: "Login successful",
+      status:  true,
       user: {
-        name: isUserExist.firstName + " " + isUserExist.lastName,
-        email: isUserExist.email,
+        name:           `${user.firstName} ${user.lastName}`,
+        email:          user.email,
+        role:           "vendor",
+        restaurantId:   restaurant._id,
+        restaurantName: restaurant.restaurantName,
       },
-      restaurant: {
-        id: restaurant._id,
-        name: restaurant.restaurantName
-      }
     });
   } catch (error) {
-    console.error("Login error:", error);
-    return res.status(500).json({
-      message: "Something went wrong!",
-      status: false,
-    });
+    console.error("Login Error:", error);
+    return res.status(500).json({ message: "Something went wrong!", status: false });
   }
 };
 
-
-// update restaurant
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Update restaurant + vendor profile
+// ─────────────────────────────────────────────────────────────────────────────
 export const updateRestaurant = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const restaurantId = req.user.restaurantId;
+    const { userId, restaurantId } = req.user;
 
     const {
-      firstName,
-      lastName,
-      phone,
-      address,
-      password,
-      restaurantName,
-      restaurantType,
-      openingTime,
-      closingTime,
+      firstName, lastName, phone, address, password,
+      restaurantName, restaurantType, openingTime, closingTime,
     } = req.body;
 
-    // find user + restaurant
-    const user = await User.findById(userId);
+    const user       = await User.findById(userId);
     const restaurant = await Restaurant.findById(restaurantId);
 
     if (!user || !restaurant) {
-      return res.status(404).json({
-        message: "User or Restaurant not found",
-      });
+      return res.status(404).json({ message: "User or Restaurant not found" });
     }
 
-    // update user
-    if (firstName) user.firstName = firstName;
-    if (lastName) user.lastName = lastName;
-    if (phone) user.phone = phone;
-    if (address) user.address = address;
+    if (firstName)    user.firstName = firstName;
+    if (lastName)     user.lastName  = lastName;
+    if (phone)        user.phone     = phone;
+    if (address)      user.address   = address;
+    if (password)     user.password  = await bcrypt.hash(password, 10);
 
-    if (password) {
-      user.password = await bcrypt.hash(password, 10);
-    }
-
-    // update restaurant
     if (restaurantName) restaurant.restaurantName = restaurantName;
     if (restaurantType) restaurant.restaurantType = restaurantType;
-    if (openingTime) restaurant.openingTime = openingTime;
-    if (closingTime) restaurant.closingTime = closingTime;
-
-    // image update
+    if (openingTime)    restaurant.openingTime    = openingTime;
+    if (closingTime)    restaurant.closingTime    = closingTime;
 
     if (req.file) {
       const baseUrl = `${req.protocol}://${req.get("host")}`;
@@ -215,93 +172,72 @@ export const updateRestaurant = async (req, res) => {
     await user.save();
     await restaurant.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "Vendor & Restaurant updated successfully",
-    });
-
+    return res.status(200).json({ success: true, message: "Updated successfully" });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      message: "Update failed",
-    });
+    console.error("Update Error:", error);
+    return res.status(500).json({ message: "Update failed" });
   }
 };
 
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Delete
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Delete restaurant + vendor account
+// ─────────────────────────────────────────────────────────────────────────────
 export const deleteRestaurant = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const userId = req.user.userId;
 
-    // Get this vendor's restaurant
     const restaurant = await Restaurant.findOne({ owner: userId });
     if (!restaurant) {
       return res.status(404).json({ message: "Restaurant not found" });
     }
 
-    const restaurantId = restaurant._id;
-
-    // Delete only this restaurant's menus
-    await Menu.deleteMany({ restaurant_id: restaurantId });
-
-    // Delete the restaurant
-    await Restaurant.findByIdAndDelete(restaurantId);
-
-    // Delete the vendor user
+    await Menu.deleteMany({ restaurant_id: restaurant._id });
+    await Restaurant.findByIdAndDelete(restaurant._id);
     await User.findByIdAndDelete(userId);
 
-    // Clear token
     res.clearCookie("token", { httpOnly: true, sameSite: "lax", secure: false });
 
-    return res.status(200).json({
-      success: true,
-      message: "Vendor, Restaurant, and Menus deleted successfully",
-    });
-
+    return res.status(200).json({ success: true, message: "Account deleted successfully" });
   } catch (error) {
     console.error("Delete error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Delete failed",
-    });
+    return res.status(500).json({ success: false, message: "Delete failed" });
   }
 };
 
-
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Get vendor profile
+// ─────────────────────────────────────────────────────────────────────────────
 export const getProfile = async (req, res) => {
   try {
     const { userId, restaurantId } = req.user;
 
-    // fetch user (exclude password)
-    const user = await User.findById(userId).select("-password");
-
-    // fetch restaurant
+    const user       = await User.findById(userId).select("-password");
     const restaurant = await Restaurant.findById(restaurantId);
 
     if (!user || !restaurant) {
-      return res.status(404).json({
-        success: false,
-        message: "User or Restaurant not found",
-      });
+      return res.status(404).json({ success: false, message: "User or Restaurant not found" });
     }
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        user,
-        restaurant,
-      },
-    });
-
+    return res.status(200).json({ success: true, data: { user, restaurant } });
   } catch (error) {
     console.error("Profile fetch error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch profile",
-    });
+    return res.status(500).json({ success: false, message: "Failed to fetch profile" });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Get all restaurants (public — active and approved only)
+// ─────────────────────────────────────────────────────────────────────────────
+export const getAllRestaurants = async (req, res) => {
+  try {
+    const restaurants = await Restaurant.find({ isBlocked: false, isApproved: true })
+      .populate("owner", "firstName lastName phone address")
+      .select("restaurantName restaurantType restaurantImage openingTime closingTime")
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, restaurants, totalActive: restaurants.length });
+  } catch (error) {
+    console.error("getAllRestaurants error:", error);
+    res.status(500).json({ message: "Failed to fetch restaurants" });
   }
 };

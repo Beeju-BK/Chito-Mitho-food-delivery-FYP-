@@ -200,24 +200,54 @@ export const getMenu = async (req, res) => {
   }
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// For customers (no login required)
+
 export const getPublicMenu = async (req, res) => {
   try {
-    const allMenuItem = await Menu.find();
+    console.log('🔍 Fetching public menus...');
+    
+    // ✅ 1. Get ONLY ACTIVE restaurants
+    const activeRestaurants = await Restaurant.find({ 
+      isBlocked: false 
+    }).select('_id');
 
-    if (!allMenuItem || allMenuItem.length === 0) {
-      return res.status(404).json({ message: "No menu items found" });
+    if (activeRestaurants.length === 0) {
+      return res.status(404).json({ 
+        message: "No active restaurants available" 
+      });
     }
 
-    return res.status(200).json({
+    const activeRestaurantIds = activeRestaurants.map(r => r._id);
+    console.log(`✅ ${activeRestaurants.length} active restaurants`);
+
+    // ✅ 2. Get menus from active restaurants ONLY
+    const allMenuItem = await Menu.find({ 
+      restaurant_id: { $in: activeRestaurantIds }  // ✅ Your field name
+    })
+    .populate('restaurant_id', 'restaurantName isBlocked')  // ✅ Verify
+    .sort({ createdAt: -1 });
+
+    // ✅ 3. Final filter (double-check)
+    const validMenus = allMenuItem.filter(menu => 
+      menu.restaurant_id && !menu.restaurant_id.isBlocked
+    );
+
+    console.log(`✅ ${validMenus.length} valid menus from ${activeRestaurantIds.length} restaurants`);
+
+    if (!validMenus || validMenus.length === 0) {
+      return res.status(404).json({ 
+        message: "No menu items available" 
+      });
+    }
+
+    res.status(200).json({
       success: true,
-      count: allMenuItem.length,
-      data: allMenuItem
+      count: validMenus.length,
+      activeRestaurants: activeRestaurants.length,
+      data: validMenus
     });
   } catch (error) {
-    console.error("Error fetching menu items:", error);
-    return res.status(500).json({
+    console.error("❌ Public menu error:", error);
+    res.status(500).json({
       success: false,
       message: "Failed to get menu items"
     });
@@ -225,5 +255,28 @@ export const getPublicMenu = async (req, res) => {
 };
 
 
-
-
+// ✅ PUBLIC - Get menus by restaurant
+export const getRestaurantMenus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log("🔍 Looking for menus in restaurant:", id); // DEBUG
+    
+    const menus = await Menu.find({ restaurant_id: id })
+      .select('name description menuImage price category');
+    
+    console.log("📋 Found menus:", menus.length); // DEBUG
+    
+    res.json({ 
+      success: true, 
+      menus,
+      count: menus.length 
+    });
+  } catch (error) {
+    console.error("❌ Menu error:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch menus",
+      error: error.message 
+    });
+  }
+};

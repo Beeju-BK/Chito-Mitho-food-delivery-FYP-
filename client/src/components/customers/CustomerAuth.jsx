@@ -1,4 +1,5 @@
-import { useState,useContext } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   FaEye,
@@ -23,8 +24,8 @@ const CustomerAuth = ({ open, onClose }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // const { verifyUser } = useContext(AuthContext);
-
+  const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
   const submitHandler = async (e) => {
     try {
       e.preventDefault();
@@ -50,12 +51,25 @@ const CustomerAuth = ({ open, onClose }) => {
         alert(data.message);
         onClose();
       }
-
+      else if(!isSignup && !isAdmin){
+        const {data} = await axios.post("http://localhost:3000/api/admin/login",
+          {email,password},
+          {withCredentials: true}
+        );
+        alert(data.message);
+        onClose();
+        navigate("/admin/dashboard");
+      }
 
     } catch (error) {
       console.log(error)
     }
   }
+
+
+  
+
+
 
 
   return (

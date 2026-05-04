@@ -16,6 +16,8 @@ import Orders from "./pages/Orders.jsx"
 import RestaurantAuth from "./components/restaurant/RestaurantAuth.jsx";
 import RestaurantDashboard from "./pages/RestaurantDashboard.jsx";
 
+//admin
+import AdminDashboard from "./pages/AdminDashboard.jsx";
 
 const App = () => {
   return (
@@ -40,12 +42,18 @@ const App = () => {
         {/* Private routes */}
         <Route element={<PrivateLayout />}>
           <Route path="/register" element={<RestaurantAuth />} />
+
           <Route path="/restaurant/dashbaord" element={<ProtectedRoute>
             <RestaurantDashboard/>
           </ProtectedRoute>} />
-         
         </Route>
 
+        <Route path="/admin/dashboard" element={
+          
+            <AdminDashboard/>
+          
+        }>
+        </Route>
         {/* Catch-all route for 404 */}
         <Route path="*" element={<PageNotFound/>} />
       </Routes>

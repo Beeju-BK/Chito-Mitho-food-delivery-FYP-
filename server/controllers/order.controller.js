@@ -1,4 +1,6 @@
 
+
+
 import Order from "../models/order.model.js";
 import Cart from "../models/cart.model.js";
 
@@ -9,7 +11,7 @@ export const createOrder = async (req, res) => {
     const { cartId, shippingAddress, paymentInfo } = req.body;
 
 
-    // 1. ✅ Verify & get cart
+    // 1.  Verify & get cart
     const cart = await Cart.findOne({
       _id: cartId,
       user: userId
@@ -25,13 +27,13 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    // 2. ✅ Calculate totals
+    // 2. Calculate totals
     const subtotal = cart.Total || 0;
     const tax = subtotal * 0.13;
     const deliveryFee = cart.restaurantId?.deliveryFee || 100;
     const totalAmount = subtotal + tax + deliveryFee;
 
-    // 3. ✅ Create items
+    // 3. Create items
     const orderItems = cart.items.map(item => ({
       menu: item.menu._id,
       quantity: item.quantity,
@@ -39,7 +41,7 @@ export const createOrder = async (req, res) => {
       total: item.menu.price * item.quantity
     }));
 
-    // 4. ✅ Create order
+    // 4Create order
     const order = new Order({
       user: userId,
       restaurant: cart.restaurantId._id,
@@ -51,7 +53,7 @@ export const createOrder = async (req, res) => {
       status: "pending",
       shippingAddress: {
         address: shippingAddress.address,
-        phone: req.user.phone || ''  // ✅ Add phone
+        phone: req.user.phone || ''  // Add phone
       },
       paymentInfo: {
         method: paymentInfo.method,
@@ -61,10 +63,10 @@ export const createOrder = async (req, res) => {
 
     await order.save();
 
-    // 5. ✅ Delete cart
+    // 5. Delete cart
     await Cart.findByIdAndDelete(cartId);
 
-    // 6. ✅ FIXED: Convert ObjectId to string
+    // 6. FIXED: Convert ObjectId to string
     const populatedOrder = await Order.findById(order._id)
       .populate({
         path: 'items.menu',
@@ -90,7 +92,7 @@ export const createOrder = async (req, res) => {
 };
 
 
-// ✅ FIXED: Get orders (NO cart populate needed)
+// FIXED: Get orders (NO cart populate needed)
 export const getUserOrders = async (req, res) => {
   try {
     const userId = req.user.userId;

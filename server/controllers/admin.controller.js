@@ -10,7 +10,7 @@ export const adminLogin = async (req, res) => {
     }
 
     // Generate JWT token
-    const payload = { role: "admin", email };
+    const payload = { role: "admin",name: "Admin" ,email };
     const token = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: "7d" });
 
     // Send token as cookie

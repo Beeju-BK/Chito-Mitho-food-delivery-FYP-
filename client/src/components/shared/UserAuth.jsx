@@ -1,6 +1,4 @@
 
-
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -33,7 +31,7 @@ const CustomerAuth = ({ open, onClose }) => {
 
   const navigate = useNavigate();
 
-  // ✅ Validate fields and show toastify for empty ones
+  // Validate fields and show toastify for empty ones
   const validateFields = () => {
     if (showForgotPassword) {
       if (!resetEmail.trim()) {
@@ -80,10 +78,10 @@ const CustomerAuth = ({ open, onClose }) => {
       toast.error("Password is required.");
       return false;
     }
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
-      return false;
-    }
+    // if (password.length < 6) {
+    //   toast.error("Password must be at least 6 characters.");
+    //   return false;
+    // }
 
     return true;
   };
@@ -91,16 +89,16 @@ const CustomerAuth = ({ open, onClose }) => {
   const submitHandler = async (e) => {
     e.preventDefault();
 
-    // ✅ Run validation before proceeding
+    // Run validation before proceeding
     if (!validateFields()) return;
 
     setLoading(true);
 
     try {
       if (isSignup) {
-        // ✅ SIGNUP - FIXED: Show toast THEN close modal
+        // SIGNUP - FIXED: Show toast THEN close modal
         const { data } = await axios.post(
-          "http://localhost:3000/api/customer/signup",
+          "http://localhost:3000/api/user/signup",
           { firstName, lastName, phone, email, password },
           { withCredentials: true }
         );
@@ -109,7 +107,7 @@ const CustomerAuth = ({ open, onClose }) => {
           autoClose: 3000
         });
 
-        // ✅ Delay close to show toast
+        // Delay close to show toast
         setTimeout(() => {
           onClose();
           // Reset form
@@ -123,30 +121,30 @@ const CustomerAuth = ({ open, onClose }) => {
         return; // Exit early
 
       } else if (showForgotPassword) {
-        // ✅ FORGOT PASSWORD
+        // FORGOT PASSWORD
         const { data } = await axios.post(
-          "http://localhost:3000/api/customer/forgot-password",
+          "http://localhost:3000/api/user/forgot-password",
           { email: resetEmail },
           { withCredentials: true }
         );
 
-        toast.success(data.message || "✅ Reset link sent! Check your email (including spam folder).");
+        toast.success(data.message || "Reset link sent! Check your email (including spam folder).");
         setShowForgotPassword(false);
         setResetEmail("");
 
       } else {
-        // ✅ LOGIN - FIXED: Show toast THEN close modal
+        // LOGIN - FIXED: Show toast THEN close modal
         const { data } = await axios.post(
-          "http://localhost:3000/api/customer/login",
+          "http://localhost:3000/api/user/login",
           { email, password },
           { withCredentials: true }
         );
 
-        toast.success(data.message || "🎉 Welcome back! Signed in successfully!", {
+        toast.success(data.message || "Welcome back! Signed in successfully!", {
           autoClose: 3000
         });
 
-        // ✅ Delay close to show toast
+        // Delay close to show toast
         setTimeout(() => {
           onClose();
           // Reset form
@@ -182,7 +180,7 @@ const CustomerAuth = ({ open, onClose }) => {
 
   return (
     <>
-      {/* ✅ Enhanced ToastContainer */}
+      {/* Enhanced ToastContainer */}
       <ToastContainer
         position="top-right"
         autoClose={4000}

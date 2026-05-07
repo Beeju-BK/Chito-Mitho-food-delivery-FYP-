@@ -1,7 +1,9 @@
 
 import bcrypt from "bcrypt";
-import jsonwebtoken from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
+import Restaurant from "../models/restaurant.model.js";
+import Deliveryman from "../models/deliveryman.model.js";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 
@@ -19,20 +21,20 @@ export const userSignup = async (req, res) => {
 
     const hashPassword = await bcrypt.hash(password, 10);
 
-    // ✅ FIX: was missing `new` keyword — User({ }) does NOT create a document
+   
     const newUser = new User({ firstName, lastName, phone, address, email, password: hashPassword });
 
     const payload = {
       userId:  newUser._id,
       name:    `${firstName} ${lastName}`,
       email,
-      // ✅ phone stored as [String] array — keep consistent in JWT
+      // phone stored as [String] array — keep consistent in JWT
       phone:   Array.isArray(phone) ? phone : [phone],
       address,
       role:    "customer",
     };
 
-    const token = jsonwebtoken.sign(payload, process.env.SECRET_KEY, { expiresIn: "7d" });
+    const token = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: "7d" });
     res.cookie("token", token, {
       httpOnly: true,
       sameSite: "lax",
@@ -66,54 +68,153 @@ export const userLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // ADMIN LOGIN (check first)
+    if (
+      email === process.env.ADMIN_EMAIL &&
+      password === process.env.ADMIN_PASSWORD
+    ) {
+      const token = jwt.sign(
+        { role: "admin", name: "Admin", email },
+        process.env.SECRET_KEY,
+        { expiresIn: "7d" }
+      );
+
+      res.cookie("token", token, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      return res.status(200).json({
+        message: "Admin login successful",
+        role: "admin",
+      });
+    }
+
+    // FIND USER
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // BLOCK CHECK
     if (user.isBlocked) {
       return res.status(403).json({
-        message: "Your account has been suspended. Please contact support.",
+        message: "Your account is blocked",
       });
     }
 
-    const isMatched = await bcrypt.compare(password, user.password);
-    if (!isMatched) {
-      return res.status(401).json({ message: "Invalid email or password" });
+    // PASSWORD CHECK
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const payload = {
-      userId:  user._id,
-      name:    `${user.firstName} ${user.lastName}`,
-      email:   user.email,
-      // ✅ phone is [String] array — pass as-is so JWT carries same type
-      phone:   user.phone,
-      address: user.address,
-      role:    user.role,
+ 
+    // ROLE BASED LOGIN
+
+
+    let payload = {
+      userId: user._id,
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      role: user.role,
     };
 
-    const token = jsonwebtoken.sign(payload, process.env.SECRET_KEY, { expiresIn: "7d" });
+    let extraData = {};
+
+    // VENDOR
+    if (user.role === "vendor") {
+      const restaurant = await Restaurant.findOne({ owner: user._id });
+
+      if (!restaurant) {
+        return res.status(403).json({ message: "Restaurant not found" });
+      }
+
+      if (!restaurant.isApproved) {
+        return res.status(403).json({
+          message: "Restaurant pending approval",
+          pending: true,
+        });
+      }
+
+      if (restaurant.isBlocked) {
+        return res.status(403).json({
+          message: "Restaurant blocked",
+        });
+      }
+
+      payload.restaurantId = restaurant._id;
+
+      extraData = {
+        restaurantId: restaurant._id,
+        restaurantName: restaurant.restaurantName,
+      };
+    }
+
+    // DELIVERYMAN
+    if (user.role === "deliveryman") {
+      const deliveryman = await Deliveryman.findOne({ userId: user._id });
+
+      if (!deliveryman) {
+        return res.status(404).json({
+          message: "Deliveryman profile not found",
+        });
+      }
+
+      if (!deliveryman.isApproved) {
+        return res.status(403).json({
+          message: "Pending approval",
+          pending: true,
+        });
+      }
+
+      payload.deliverymanId = deliveryman._id;
+
+      extraData = {
+        deliverymanId: deliveryman._id,
+        zone: deliveryman.zone,
+        vehicle: deliveryman.vehicle,
+      };
+    }
+
+    // CUSTOMER (default)
+    if (user.role === "customer") {
+      payload.phone = user.phone;
+      payload.address = user.address;
+    }
+
+    // CREATE TOKEN
+    const token = jwt.sign(payload, process.env.SECRET_KEY, {
+      expiresIn: "7d",
+    });
+
     res.cookie("token", token, {
       httpOnly: true,
       sameSite: "lax",
-      secure:   false,
-      maxAge:   7 * 24 * 60 * 60 * 1000,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return res.status(200).json({
-      message: "Logged in successfully!",
+      message: "Login successful",
+      role: user.role,
       user: {
-        id:    user._id,
-        name:  `${user.firstName} ${user.lastName}`,
+        name: `${user.firstName} ${user.lastName}`,
         email: user.email,
-        role:  user.role,
+        role: user.role,
+        ...extraData,
       },
     });
   } catch (error) {
-    console.error("Login error:", error);
-    return res.status(500).json({ message: "Login failed!" });
+    console.error("Login Error:", error);
+    return res.status(500).json({ message: "Something went wrong" });
   }
 };
+
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Logout

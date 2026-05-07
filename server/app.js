@@ -30,7 +30,7 @@ import orderRoute from "./routes/order.route.js";
 
 app.use("/api/jwt",verifyJwtToken)
 app.use("/api/admin",adminRoute);
-app.use("/api/customer",userRoute);
+app.use("/api/user",userRoute);
 app.use("/api/restaurant", restaurantRoute);
 app.use("/api/deliveryman",deliverymanRoute);
 app.use("/api/menu",menuRoute);

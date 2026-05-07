@@ -25,7 +25,7 @@ const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await axios.post("/customer/logout");
+      await axios.post("/user/logout");
       setUser(null);
     } catch (error) {
       console.error("Logout failed:", error);
